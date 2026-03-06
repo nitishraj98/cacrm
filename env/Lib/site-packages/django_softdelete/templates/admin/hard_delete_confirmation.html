@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}{% trans "Hard delete confirmation" %}{% endblock %}
+
+{% block content_title %}
+    <h1>{% trans "Hard delete confirmation" %}</h1>
+{% endblock %}
+
+{% block content %}
+    <div class="module">
+        {% if perms_lacking %}
+            <p class="errornote">
+                {% blocktrans %}Deleting the selected {{ objects_name }} would result in deleting related objects, but your account doesn't have permission to delete the following types of objects:{% endblocktrans %}
+            </p>
+            <ul>{{ perms_lacking|unordered_list }}</ul>
+        {% elif protected %}
+            <p class="errornote">
+                {% blocktrans %}Deleting the selected {{ objects_name }} would require deleting the following protected related objects:{% endblocktrans %}
+            </p>
+            <ul>{{ protected|unordered_list }}</ul>
+        {% else %}
+            <p class="errornote">
+                <strong>⚠️ Warning:</strong>
+                {% blocktrans with objects_name=objects_name %}Are you sure you want to permanently delete the selected {{ objects_name }}? This action cannot be undone!{% endblocktrans %}
+            </p>
+
+            {% if deletable_objects %}
+                <h2>{% trans "Objects to be permanently deleted:" %}</h2>
+                <ul>
+                    {% for obj in deletable_objects %}
+                        <li>{{ obj }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+                {% for obj in queryset %}
+                    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}" />
+                {% endfor %}
+                <input type="hidden" name="action" value="{{ action_name }}" />
+                <input type="hidden" name="post" value="yes" />
+                {% if preserved %}
+                    {% for obj in preserved %}
+                        <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}" />
+                    {% endfor %}
+                {% endif %}
+                
+                <p>
+                    <input type="submit" value="{% trans 'Yes, permanently delete' %}" class="default" />
+                    <a href="{% url opts|admin_urlname:'changelist' %}" class="button cancel-link">{% trans "No, take me back" %}</a>
+                </p>
+            </form>
+        {% endif %}
+    </div>
+{% endblock %}
