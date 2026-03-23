@@ -12,6 +12,9 @@ class CompanySerializer(serializers.ModelSerializer):
         model = Company
         fields = '__all__'
         extra_fields = ['client_name','account_manager_name']
+        # Avoid DRF's UniqueConstraint validator blowing up on partial updates
+        # when condition fields (e.g., deleted_at) are not in the payload.
+        validators = []
     
     def get_client_name(self, obj):
         return obj.client.full_name if obj.client else ""
@@ -20,9 +23,11 @@ class CompanySerializer(serializers.ModelSerializer):
         return obj.account_manager.full_name if obj.account_manager else ""
     
     def validate(self, data):
-        name = data.get('name')
-        gst_number = data.get('gst_number')
-        registration_number = data.get('registration_number')
+        # For partial updates, fall back to instance values so we don't validate
+        # against None when fields are omitted.
+        name = data.get('name', self.instance.name if self.instance else None)
+        gst_number = data.get('gst_number', self.instance.gst_number if self.instance else None)
+        registration_number = data.get('registration_number', self.instance.registration_number if self.instance else None)
 
         # Prepare the query for individual field checks
         name_query = Q(name=name)

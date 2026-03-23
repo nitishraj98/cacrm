@@ -39,7 +39,7 @@ class DocumentViewSet(viewsets.ModelViewSet):
                 return Document.deleted_objects.filter(company__client=user)
             else:
                 # Show only non-deleted documents assigned to the client
-                return Document.deleted_objects.filter(company__client=user)
+                return Document.objects.filter(company__client=user, deleted_at__isnull=True)
         
         return Document.objects.none()
 
@@ -187,5 +187,4 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 

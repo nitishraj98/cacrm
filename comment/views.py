@@ -48,7 +48,7 @@ class CommentViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
 
             with transaction.atomic():
-                self.perform_create(serializer)
+                serializer.save(user=request.user)
                 headers = self.get_success_headers(serializer.data)
                 response_data = {
                     'message': 'Comment created successfully.',

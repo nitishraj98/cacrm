@@ -24,8 +24,17 @@ def role_based_permission(action):
                     return Response({"error": f"You do not have permission to {action.replace('_', ' ')}."},
                                     status=status.HTTP_403_FORBIDDEN)
 
-            print("Permission denied, client role detected.") 
-            return Response({"error": "Clients do not have permission to manage companies."}, 
+            if current_user.role == 'CLNT':
+                allowed_client_actions = {'create_comment', 'create_document'}
+                if action in allowed_client_actions:
+                    print("Client allowed for action, proceeding.")
+                    return view_func(self, request, *args, **kwargs)
+                print("Permission denied, client role detected.") 
+                return Response({"error": "Clients do not have permission to perform this action."}, 
+                                status=status.HTTP_403_FORBIDDEN)
+
+            print("Permission denied, unknown role.") 
+            return Response({"error": "You do not have permission to perform this action."}, 
                             status=status.HTTP_403_FORBIDDEN)
 
         return _wrapped_view

@@ -10,7 +10,8 @@ from rest_framework_simplejwt.tokens import RefreshToken,AccessToken
 from django.shortcuts import get_object_or_404
 from user.decorators import *
 from django_filters.rest_framework import DjangoFilterBackend
-from django.db import IntegrityError,transaction
+from django.db import IntegrityError, transaction
+from django.db.models import Q
 from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.exceptions import APIException
@@ -68,6 +69,8 @@ class CustomLoginView(TokenObtainPairView):
             response.data['name'] = user.full_name
             response.data['email'] = user.email
             response.data['phone_number'] = user.phone_number
+            response.data['uid'] = user.uid
+            response.data['id'] = user.id
             response.data['message'] = 'Login successful'
             return response
         else:
@@ -257,18 +260,25 @@ class UserViewSet(viewsets.ModelViewSet):
                 return User.objects.filter(is_active=True)
 
         elif user.role == 'AM':
+            # Account Managers can list their clients and also view/update their own profile
             if show_deleted:
-                # Return only deleted clients assigned to the AM
-                return User.objects.filter(role='CLNT', assigned_to=user, is_active=False)
+                return User.objects.filter(
+                    Q(id=user.id) |
+                    Q(role='CLNT', assigned_to=user, is_active=False)
+                )
             else:
-                # Return all clients assigned to the AM (including deleted ones)
-                return User.objects.filter(role='CLNT', assigned_to=user,is_active=True)
+                return User.objects.filter(
+                    Q(id=user.id) |
+                    Q(role='CLNT', assigned_to=user, is_active=True)
+                )
 
         elif user.role == 'CLNT':
-            # Clients should not see any users
-            return User.objects.none()
+            # Clients can only see their own profile
+            if show_deleted:
+                return User.objects.filter(id=user.id, is_active=False)
+            return User.objects.filter(id=user.id, is_active=True)
 
-        return User.objects.none() 
+        return User.objects.none()
     
     def list(self, request, *args, **kwargs):
         if any(request.query_params.get(param) for param in self.filterset_class.get_filters()):
@@ -441,6 +451,15 @@ class AssignClientView(generics.GenericAPIView):
                 return Response({
                     'error': 'Only CAs can assign clients to Account Managers.',
                 }, status=status.HTTP_403_FORBIDDEN)
+
+            if client.assigned_to:
+                if client.assigned_to.id == account_manager.id:
+                    return Response({
+                        'error': 'Client is already assigned to this Account Manager.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    'error': f'Client is already assigned to another Account Manager: {client.assigned_to.full_name}.'
+                }, status=status.HTTP_400_BAD_REQUEST)
 
             client.assigned_to = account_manager
             client.save()
